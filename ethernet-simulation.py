@@ -22,8 +22,8 @@ class G:
     SIM_TIME = 1000000   # This should be large
     SLOT_TIME = 1
     N = 30
-    ARRIVAL_RATES = [0.003] #[0.001, 0.002, 0.003, 0.006, 0.008, 0.01, 0.015, 0.02, 0.024, 0.03]  # Check the submission guidelines
-    RETRANMISSION_POLICIES = ["pp"]#["pp", "op", "beb", "lb"]
+    ARRIVAL_RATES = [0.001, 0.002, 0.003, 0.006, 0.008, 0.01, 0.015, 0.02, 0.024, 0.03]  # Check the submission guidelines [0.003] #
+    RETRANMISSION_POLICIES = ["pp", "op"]#, "beb", "lb"]["pp"]
     LONG_SLEEP_TIMER = 1000000000
 
         
@@ -60,11 +60,11 @@ class Server_Process(object):
                     self.transmitting_nodes.append(self.dictionary_of_nodes[node].id)
                     self.total_transmitting += 1
                 # if on last item in list and only one node transmitting
-                if node == G.N and self.total_transmitting == 1:
-                    self.successful_slots += 1
-                    self.dictionary_of_nodes[self.transmitting_nodes[0]].len -= 1 #subtract length of node in dict
-                    self.transmitting_nodes.clear()
-                    self.total_transmitting = 0
+            if self.total_transmitting == 1:
+                self.successful_slots += 1
+                self.dictionary_of_nodes[self.transmitting_nodes[0]].len -= 1 #subtract length of node in dict
+                # self.transmitting_nodes.clear()
+                # self.total_transmitting = 0
             if self.total_transmitting >= 2:
             
                 if self.retran_policy == "pp":
@@ -88,7 +88,7 @@ class Server_Process(object):
                     #     self.dictionary_of_nodes[elem].retransmit_slot = random.random() * self.dictionary_of_nodes[elem].k # should be elem.retrans_slot
                 
                 if self.retran_policy == "pp" or self.retran_policy == "op":
-                    # If no collisions and 1 success
+                    # If no collisions and not empty
                     if temp == 1:
                         # Find correct node
                         for elem in self.transmitting_nodes:
@@ -96,18 +96,18 @@ class Server_Process(object):
                             if cur_node.retransmit_slot == self.current_slot:
                                 # print(elem)
                                 # if self.current_slot > 100000:
-                                #     print(self.current_slot)
+                                # print(self.current_slot)
                                 cur_node.len -= 1
                                 self.successful_slots += 1
-                                if cur_node.len == 0:
-                                    self.transmitting_nodes.remove(elem)
-                                    self.total_transmitting -= 1
-                                break
+                                # if cur_node.len == 0:
+                                #     # self.transmitting_nodes.remove(elem)
+                                #     # self.total_transmitting -= 1
+                                # break
                 if self.retran_policy == "beb":
                     break    
             temp = 0
             self.transmitting_nodes.clear()
-            # self.total_transmitting = 0
+            self.total_transmitting = 0
 
             
 
@@ -167,12 +167,14 @@ def main():
 
     print("Simulation Analysis of Random Access Protocols")
     random.seed(G.RANDOM_SEED)
-
+    throughputs = []
+    lambda_n = []
     for retran_policy in G.RETRANMISSION_POLICIES: 
         for arrival_rate in G.ARRIVAL_RATES:
             # Allows for the creation of new events
             env = simpy.Environment()
             slot_stat = StatObject()
+            
             dictionary_of_nodes  = {} 
                                       
             
@@ -184,12 +186,24 @@ def main():
             
             # code to determine throughput
             # total_slots = server_process.slot_stat.getLength()
-            print(server_process.successful_slots)
-            throughput = server_process.successful_slots/G.SIM_TIME
-            print(throughput)
+            # print(server_process.successful_slots)
+            # throughput = server_process.successful_slots/G.SIM_TIME
+            throughputs.append(server_process.successful_slots/G.SIM_TIME)
+            # print(throughput)
         
         # code to plot 
-        #plt.plot(G.ARRIVAL_RATES * G.N, throughput)   
+    for arrival_rate in G.ARRIVAL_RATES:
+        lambda_n.append(arrival_rate * G.N)
+
+    plt.plot(lambda_n, throughputs[0:10], label="pp")
+    plt.plot(lambda_n, throughputs[10:20], label="op")
+    plt.axis([-0.2, 1.2, 0, 0.9])
+    plt.legend()
+    plt.xlabel("Offered Load (Lambda * N)")
+    plt.ylabel("Achieved Throughput")
+    plt.grid(True)
+    plt.savefig('name2.png')   
+    plt.show()
     
 if __name__ == '__main__': main()
 
