@@ -19,11 +19,11 @@ packets = []
 # First  define some global variables. You should change values
 class G:
     RANDOM_SEED = 33
-    SIM_TIME = 1000000   # This should be large
+    SIM_TIME = 100000   # This should be large
     SLOT_TIME = 1
     N = 30
     ARRIVAL_RATES = [0.001, 0.002, 0.003, 0.006, 0.008, 0.01, 0.015, 0.02, 0.024, 0.03]  # Check the submission guidelines [0.003] #
-    RETRANMISSION_POLICIES = ["pp", "op"]#, "beb", "lb"]["pp"]
+    RETRANMISSION_POLICIES = ["pp", "op", "beb"]#, "beb", "lb"]["pp"]
     LONG_SLEEP_TIMER = 1000000000
 
         
@@ -49,9 +49,6 @@ class Server_Process(object):
             yield self.env.timeout(G.SLOT_TIME)
             self.current_slot += 1
             temp = 0
-            # Code to determine what happens to a slot and 
-            # then update node variables accordingly based 
-            # on the algorithm 
   
             # loop through node dict, if (len >= 1) then add to transmitting nodes (list of indexes)
             for node in list(range(1,G.N+1)):
@@ -63,8 +60,7 @@ class Server_Process(object):
             if self.total_transmitting == 1:
                 self.successful_slots += 1
                 self.dictionary_of_nodes[self.transmitting_nodes[0]].len -= 1 #subtract length of node in dict
-                # self.transmitting_nodes.clear()
-                # self.total_transmitting = 0
+
             if self.total_transmitting >= 2:
             
                 if self.retran_policy == "pp":
@@ -81,11 +77,13 @@ class Server_Process(object):
                             if temp == 2:
                                 break
                             self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot
-                    # elif self.retran_policy == "beb":
-                    #     max = pow(2, self.dictionary_of_nodes[elem].k)
-                    #     self.dictionary_of_nodes[elem].retransmit_slot = random.random() * max
-                    # else:
-                    #     self.dictionary_of_nodes[elem].retransmit_slot = random.random() * self.dictionary_of_nodes[elem].k # should be elem.retrans_slot
+                elif self.retran_policy == "beb":
+                    for elem in self.transmitting_nodes:
+                        if self.dictionary_of_nodes[elem].retransmit_slot == 0:
+                            max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
+                            self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                            self.dictionary_of_nodes[elem].n += 1
+           
                 
                 if self.retran_policy == "pp" or self.retran_policy == "op":
                     # If no collisions and not empty
@@ -94,20 +92,25 @@ class Server_Process(object):
                         for elem in self.transmitting_nodes:
                             cur_node = self.dictionary_of_nodes[elem]
                             if cur_node.retransmit_slot == self.current_slot:
-                                # print(elem)
-                                # if self.current_slot > 100000:
-                                # print(self.current_slot)
                                 cur_node.len -= 1
                                 self.successful_slots += 1
-                                # if cur_node.len == 0:
-                                #     # self.transmitting_nodes.remove(elem)
-                                #     # self.total_transmitting -= 1
-                                # break
+
                 if self.retran_policy == "beb":
-                    break    
+                    for elem in self.transmitting_nodes:
+                        cur_node = self.dictionary_of_nodes[elem]
+                        if cur_node.retransmit_slot == self.current_slot:
+                            temp += 1
+                            self.transmitting_node_index = elem
+                    if temp == 1:
+                        self.dictionary_of_nodes[self.transmitting_node_index].len -= 1
+                        self.dictionary_of_nodes[self.transmitting_node_index].n = 0
+                        self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 0
+                        self.successful_slots += 1
+
             temp = 0
             self.transmitting_nodes.clear()
             self.total_transmitting = 0
+            self.transmitting_node_index = 0
 
             
 
@@ -123,29 +126,18 @@ class Node_Process(object):
         self.arrival_rate = arrival_rate
         self.len = 0
         self.retransmit_slot = 0
-        self.k = 0
+        self.n = 0
         # Other state variables
         
         self.action = env.process(self.run())
         
     # Automatically started when object instantiated
     def run(self):
-        # packet arrivals 
         # print("Arrival Process Started:", self.id)
         while True:
             yield self.env.timeout(random.expovariate(self.arrival_rate))
             self.len += 1
-        # Code to generate the next packet and deal with it
-        
-        # create an array of packets, if any
-    # def get_id(self):
-    #     return self.id 
-        
 
-# class Packet:
-#     def __init__(self, identifier, arrival_time):
-#         self.identifier = identifier
-#         self.arrival_time = arrival_time
 
 
 class StatObject(object):    
@@ -173,8 +165,7 @@ def main():
         for arrival_rate in G.ARRIVAL_RATES:
             # Allows for the creation of new events
             env = simpy.Environment()
-            slot_stat = StatObject()
-            
+            slot_stat = StatObject()  
             dictionary_of_nodes  = {} 
                                       
             
@@ -197,7 +188,8 @@ def main():
 
     plt.plot(lambda_n, throughputs[0:10], label="pp")
     plt.plot(lambda_n, throughputs[10:20], label="op")
-    plt.axis([-0.2, 1.2, 0, 0.9])
+    plt.plot(lambda_n, throughputs[20:30], label="beb")
+    plt.axis([-0.05, 1.2, -0.05, 0.9])
     plt.legend()
     plt.xlabel("Offered Load (Lambda * N)")
     plt.ylabel("Achieved Throughput")
