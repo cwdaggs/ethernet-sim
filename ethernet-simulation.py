@@ -23,7 +23,7 @@ class G:
     SLOT_TIME = 1
     N = 30
     ARRIVAL_RATES = [0.001, 0.002, 0.003, 0.006, 0.008, 0.01, 0.015, 0.02, 0.024, 0.03]  # Check the submission guidelines [0.003] #
-    RETRANMISSION_POLICIES = ["pp", "op", "beb"]#, "beb", "lb"]["pp"]
+    RETRANMISSION_POLICIES = ["pp", "op", "beb", "lb"]#, "beb", "lb"]["pp"]
     LONG_SLEEP_TIMER = 1000000000
 
         
@@ -42,7 +42,7 @@ class Server_Process(object):
         self.action = env.process(self.run())
        
     def run(self):
-        print("Server process started")
+        print("Server process started", self.retran_policy)
         
         # Generator function- Will never terminate but will pass control back when yield is reached
         while True: 
@@ -77,11 +77,36 @@ class Server_Process(object):
                             if temp == 2:
                                 break
                             self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot
-                elif self.retran_policy == "beb":
+                elif self.retran_policy == "beb" or self.retran_policy == "lb":
                     for elem in self.transmitting_nodes:
-                        if self.dictionary_of_nodes[elem].retransmit_slot == 0:
-                            max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
-                            self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                        cur_node = self.dictionary_of_nodes[elem]
+                        # Nodes trying to transmit in this slot
+                        if cur_node.retransmit_slot == self.current_slot:
+                            print("got here")
+                            temp += 1
+                            # Collision occurred
+                            if temp == 2:
+                                break
+                            self.transmitting_node_index = elem
+                    # No collision
+                    if temp == 1:
+                        self.dictionary_of_nodes[self.transmitting_node_index].len -= 1
+                        # need a conditional on this?
+                        self.dictionary_of_nodes[self.transmitting_node_index].n = 0
+                        # need a conditional on this?
+                        self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 0
+                        self.successful_slots += 1
+                    elif temp == 2:
+                        for elem in self.transmitting_nodes:
+                            if self.retran_policy == "beb":
+                                max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
+                            else:
+                                max = random.randint(0, min(self.dictionary_of_nodes[elem].n, 1024))
+                            # fix this
+                            if self.dictionary_of_nodes[elem].retransmit_slot == 0:
+                                self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                            else: 
+                                self.dictionary_of_nodes[elem].retransmit_slot += max
                             self.dictionary_of_nodes[elem].n += 1
            
                 
@@ -95,17 +120,24 @@ class Server_Process(object):
                                 cur_node.len -= 1
                                 self.successful_slots += 1
 
-                if self.retran_policy == "beb":
-                    for elem in self.transmitting_nodes:
-                        cur_node = self.dictionary_of_nodes[elem]
-                        if cur_node.retransmit_slot == self.current_slot:
-                            temp += 1
-                            self.transmitting_node_index = elem
-                    if temp == 1:
-                        self.dictionary_of_nodes[self.transmitting_node_index].len -= 1
-                        self.dictionary_of_nodes[self.transmitting_node_index].n = 0
-                        self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 0
-                        self.successful_slots += 1
+                # if self.retran_policy == "beb":
+                #     for elem in self.transmitting_nodes:
+                #         cur_node = self.dictionary_of_nodes[elem]
+                #         if cur_node.retransmit_slot == self.current_slot:
+                #             temp += 1
+                #             if temp == 2:
+                #                 break
+                #             self.transmitting_node_index = elem
+                #     if temp == 1:
+                #         self.dictionary_of_nodes[self.transmitting_node_index].len -= 1
+                #         self.dictionary_of_nodes[self.transmitting_node_index].n = 0
+                #         self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 0
+                #         self.successful_slots += 1
+                #     else:
+                #         for elem in self.transmitting_nodes:
+                #             max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
+                #             self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                #             self.dictionary_of_nodes[elem].n += 1
 
             temp = 0
             self.transmitting_nodes.clear()
@@ -189,6 +221,7 @@ def main():
     plt.plot(lambda_n, throughputs[0:10], label="pp")
     plt.plot(lambda_n, throughputs[10:20], label="op")
     plt.plot(lambda_n, throughputs[20:30], label="beb")
+    plt.plot(lambda_n, throughputs[30:40], label="lb")
     plt.axis([-0.05, 1.2, -0.05, 0.9])
     plt.legend()
     plt.xlabel("Offered Load (Lambda * N)")
