@@ -56,7 +56,7 @@ class Server_Process(object):
                     # Add node ID to transmitting nodes
                     self.transmitting_nodes.append(self.dictionary_of_nodes[node].id)
                     self.total_transmitting += 1
-                # if on last item in list and only one node transmitting
+            # if only one node transmitting
             if self.total_transmitting == 1:
                 self.successful_slots += 1
                 self.dictionary_of_nodes[self.transmitting_nodes[0]].len -= 1 #subtract length of node in dict
@@ -82,32 +82,44 @@ class Server_Process(object):
                         cur_node = self.dictionary_of_nodes[elem]
                         # Nodes trying to transmit in this slot
                         if cur_node.retransmit_slot == self.current_slot:
-                            print("got here")
+                            # print("got here")
                             temp += 1
                             # Collision occurred
-                            if temp == 2:
-                                break
+                            # if temp == 2:
+                            #     break
                             self.transmitting_node_index = elem
+                    if temp >= 2:
+                        for elem in self.transmitting_nodes:
+                            if cur_node.retransmit_slot == self.current_slot:
+                                if self.retran_policy == "beb":
+                                    max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
+                                else:
+                                    max = random.randint(0, min(self.dictionary_of_nodes[elem].n, 1024))
+                                # fix this
+                                self.dictionary_of_nodes[elem].retransmit_slot += max
+                                self.dictionary_of_nodes[elem].n += 1
+                            # elif cur_node.retransmit_slot == 1:
+                            #     if self.retran_policy == "beb":
+                            #         max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
+                            #     else:
+                            #         max = random.randint(0, min(self.dictionary_of_nodes[elem].n, 1024))
+                            #     # fix this
+                            #     self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                            #     self.dictionary_of_nodes[elem].n += 1
+                        # if self.dictionary_of_nodes[elem].retransmit_slot == 1:
+                        #     self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
+                        #     self.dictionary_of_nodes[elem].n += 1
+                        # elif self.current_slot >= self.dictionary_of_nodes[elem].retransmit_slot: 
+                            
+                    
                     # No collision
                     if temp == 1:
                         self.dictionary_of_nodes[self.transmitting_node_index].len -= 1
-                        # need a conditional on this?
                         self.dictionary_of_nodes[self.transmitting_node_index].n = 0
                         # need a conditional on this?
-                        self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 0
+                        # self.dictionary_of_nodes[self.transmitting_node_index].retransmit_slot = 1
                         self.successful_slots += 1
-                    elif temp == 2:
-                        for elem in self.transmitting_nodes:
-                            if self.retran_policy == "beb":
-                                max = random.randint(0, pow(2, min(self.dictionary_of_nodes[elem].n, 10)))
-                            else:
-                                max = random.randint(0, min(self.dictionary_of_nodes[elem].n, 1024))
-                            # fix this
-                            if self.dictionary_of_nodes[elem].retransmit_slot == 0:
-                                self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
-                            else: 
-                                self.dictionary_of_nodes[elem].retransmit_slot += max
-                            self.dictionary_of_nodes[elem].n += 1
+                    
            
                 
                 if self.retran_policy == "pp" or self.retran_policy == "op":
@@ -139,7 +151,7 @@ class Server_Process(object):
                 #             self.dictionary_of_nodes[elem].retransmit_slot = self.current_slot + max
                 #             self.dictionary_of_nodes[elem].n += 1
 
-            temp = 0
+            # temp = 0
             self.transmitting_nodes.clear()
             self.total_transmitting = 0
             self.transmitting_node_index = 0
@@ -157,7 +169,7 @@ class Node_Process(object):
         self.id = id
         self.arrival_rate = arrival_rate
         self.len = 0
-        self.retransmit_slot = 0
+        self.retransmit_slot = 1
         self.n = 0
         # Other state variables
         
